@@ -2,6 +2,13 @@
 
 use std::fmt;
 
+use hmac::{Hmac, Mac};
+use sha3::Sha3_384;
+
+use crate::error::Error;
+
+type HmacSha384 = Hmac<Sha3_384>;
+
 /// Bitfinex authentication
 #[derive(Clone)]
 pub enum BitfinexAuth {
@@ -32,4 +39,16 @@ impl BitfinexAuth {
             api_secret: api_secret.into(),
         }
     }
+}
+
+pub(crate) fn sign_payload<S, P>(secret: S, payload: P) -> Result<String, Error>
+where
+    S: AsRef<[u8]>,
+    P: AsRef<[u8]>,
+{
+    let mut mac: HmacSha384 = HmacSha384::new_from_slice(secret.as_ref())?;
+    mac.update(payload.as_ref());
+    let result = mac.finalize();
+    let signature: String = hex::encode(result.into_bytes());
+    Ok(signature)
 }
