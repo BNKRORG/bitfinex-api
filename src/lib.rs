@@ -6,3 +6,4 @@
 #![warn(rustdoc::bare_urls)]
 
 pub mod auth;
+pub mod response;
