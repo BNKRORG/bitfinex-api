@@ -4,3 +4,5 @@
 #![warn(missing_docs)]
 #![warn(clippy::large_futures)]
 #![warn(rustdoc::bare_urls)]
+
+pub mod auth;
