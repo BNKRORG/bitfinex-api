@@ -1,5 +1,6 @@
 //! Bitfinex client
 
+use std::borrow::Cow;
 use std::time::{Duration, SystemTime};
 
 use reqwest::header::{ACCEPT, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
@@ -8,24 +9,29 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::auth::{self, BitfinexAuth};
-use crate::constant::{API_ROOT_URL, API_SIGNATURE_PATH, USER_AGENT_NAME};
+use crate::constant::{API_ROOT_URL, API_SIGNATURE_PATH, BTC_TICKER, USER_AGENT_NAME};
 use crate::error::Error;
-use crate::response::Wallet;
+use crate::response::{Movement, Wallet};
 
 enum Api {
     Wallets,
+    Movements { currency: String },
 }
 
 impl Api {
-    fn url_path(&self) -> &str {
+    fn url_path(&self) -> Cow<str> {
         match self {
-            Self::Wallets => "/v2/auth/r/wallets",
+            Self::Wallets => Cow::Borrowed("/v2/auth/r/wallets"),
+            Self::Movements { currency } => {
+                Cow::Owned(format!("/v2/auth/r/movements/{currency}/hist"))
+            }
         }
     }
 
     fn http_method(&self) -> Method {
         match self {
             Self::Wallets => Method::POST,
+            Self::Movements { .. } => Method::POST,
         }
     }
 }
@@ -99,7 +105,7 @@ impl BitfinexClient {
     where
         T: DeserializeOwned,
     {
-        let url: Url = self.root_url.join(api.url_path())?;
+        let url: Url = self.root_url.join(api.url_path().as_ref())?;
         let method: Method = api.http_method();
 
         // Build headers
@@ -126,6 +132,15 @@ impl BitfinexClient {
     #[inline]
     pub async fn wallets(&self) -> Result<Vec<Wallet>, Error> {
         self.call_api(Api::Wallets).await
+    }
+
+    /// Get **bitcoin** movements (deposit/withdrawal)
+    #[inline]
+    pub async fn movements(&self) -> Result<Vec<Movement>, Error> {
+        self.call_api(Api::Movements {
+            currency: String::from(BTC_TICKER),
+        })
+        .await
     }
 }
 
