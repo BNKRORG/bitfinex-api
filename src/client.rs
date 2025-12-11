@@ -9,13 +9,14 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::auth::{self, BitfinexAuth};
-use crate::constant::{API_ROOT_URL, API_SIGNATURE_PATH, BTC_TICKER, USER_AGENT_NAME};
+use crate::constant::{API_ROOT_URL, API_SIGNATURE_PATH, BTC_TICKER, TBTC_TICKER, USER_AGENT_NAME};
 use crate::error::Error;
-use crate::response::{Movement, Wallet};
+use crate::response::{Movement, Trade, Wallet};
 
 enum Api {
     Wallets,
     Movements { currency: String },
+    Trades,
 }
 
 impl Api {
@@ -25,6 +26,7 @@ impl Api {
             Self::Movements { currency } => {
                 Cow::Owned(format!("/v2/auth/r/movements/{currency}/hist"))
             }
+            Self::Trades => Cow::Borrowed("/v2/auth/r/trades/hist"),
         }
     }
 
@@ -32,6 +34,7 @@ impl Api {
         match self {
             Self::Wallets => Method::POST,
             Self::Movements { .. } => Method::POST,
+            Self::Trades => Method::POST,
         }
     }
 }
@@ -141,6 +144,22 @@ impl BitfinexClient {
             currency: String::from(BTC_TICKER),
         })
         .await
+    }
+
+    /// Get **bitcoin** trades (buy/sell)
+    #[inline]
+    pub async fn trades(&self) -> Result<Vec<Trade>, Error> {
+        let trades: Vec<Trade> = self.call_api(Api::Trades).await?;
+
+        // Filter bitcoin trades
+        let trades: Vec<Trade> = trades
+            .into_iter()
+            .filter(|trade| {
+                trade.symbol.starts_with(TBTC_TICKER) || trade.symbol.ends_with(BTC_TICKER)
+            })
+            .collect();
+
+        Ok(trades)
     }
 }
 

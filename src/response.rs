@@ -128,6 +128,73 @@ struct MovementArray(
     Option<String>, // WITHDRAW_TRANSACTION_NOTE
 );
 
+/// Bitfinex executed trade
+///
+/// <https://docs.bitfinex.com/reference/rest-auth-trades>
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(from = "TradeArray")]
+pub struct Trade {
+    /// Trade database id
+    pub id: u64,
+    /// Symbol
+    pub symbol: String,
+    /// Execution timestamp
+    pub timestamp: u64,
+    /// Order id
+    pub order_id: u64,
+    /// Positive means buy, negative means sell
+    pub amount: f64,
+    /// Execution price
+    pub price: f64,
+    /// Order type
+    pub order_type: String,
+    /// Order price
+    pub order_price: f64,
+    /// Whether the trade was a maker
+    pub is_maker: bool,
+    /// Fee
+    pub fee: f64,
+    /// Fee currency
+    pub fee_currency: String,
+    /// Client Order ID
+    pub cid: Option<u64>,
+}
+
+impl From<TradeArray> for Trade {
+    fn from(arr: TradeArray) -> Self {
+        Trade {
+            id: arr.0,
+            symbol: arr.1,
+            timestamp: arr.2,
+            order_id: arr.3,
+            amount: arr.4,
+            price: arr.5,
+            order_type: arr.6,
+            order_price: arr.7,
+            is_maker: arr.8 == 1,
+            fee: arr.9,
+            fee_currency: arr.10,
+            cid: arr.11,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct TradeArray(
+    u64,         // ID
+    String,      // SYMBOL
+    u64,         // MTS
+    u64,         // ORDER_ID
+    f64,         // EXEC_AMOUNT
+    f64,         // EXEC_PRICE
+    String,      // ORDER_TYPE
+    f64,         // ORDER_PRICE
+    i8,          // MAKER
+    f64,         // FEE
+    String,      // FEE_CURRENCY
+    Option<u64>, // CID
+);
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -216,6 +283,44 @@ mod tests {
                 payment_id: None,
                 transaction_id: String::from("TRANSACTION_ID"),
                 withdraw_transaction_note: Some(String::from("Purchase of 10000 pizzas")),
+            }
+        );
+    }
+
+    #[test]
+    fn test_trade_deserialization() {
+        let json = r#"[
+                402088407,
+                "tBTCUST",
+                1574963975602,
+                34938060782,
+                -0.2,
+                153.57,
+                "MARKET",
+                0.0,
+                -1,
+                -0.061668,
+                "USD",
+                1234
+            ]"#;
+
+        let trade: Trade = serde_json::from_str(json).unwrap();
+
+        assert_eq!(
+            trade,
+            Trade {
+                id: 402088407,
+                symbol: String::from("tBTCUST"),
+                timestamp: 1574963975602,
+                order_id: 34938060782,
+                amount: -0.2,
+                price: 153.57,
+                order_type: String::from("MARKET"),
+                order_price: 0.0,
+                is_maker: false,
+                fee: -0.061668,
+                fee_currency: String::from("USD"),
+                cid: Some(1234),
             }
         );
     }
